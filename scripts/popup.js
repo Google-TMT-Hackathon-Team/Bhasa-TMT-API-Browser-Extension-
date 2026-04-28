@@ -1,7 +1,4 @@
-import "./secrets.js";
-
 const API_URL = "https://tmt.ilprl.ku.edu.np/lang-translate";
-const API_KEY = typeof TMT_API_KEY !== "undefined" ? TMT_API_KEY : "";
 
 document.addEventListener("DOMContentLoaded", () => {
   const srcLang = document.getElementById("srcLang");
@@ -42,39 +39,49 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    translateBtn.disabled = true;
-    translateBtn.textContent = "Translating...";
-    outputText.textContent = "";
-
-    try {
-      const response = await fetch(API_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${API_KEY}`,
-        },
-        body: JSON.stringify({
-          text: text,
-          src_lang: srcLang.value,
-          tgt_lang: tgtLang.value,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (data.message_type === "SUCCESS") {
-        outputText.textContent = data.output;
-      } else {
-        outputText.textContent = `❌ ${data.message || "Translation failed."}`;
+    // Get API key from storage
+    chrome.storage.local.get(["tmt_api_key"], async (result) => {
+      const apiKey = result.tmt_api_key;
+      if (!apiKey) {
+        outputText.textContent =
+          "⚠ No API key set. Go to Settings to add your key.";
+        return;
       }
-    } catch (err) {
-      console.error("TMT API error:", err);
-      outputText.textContent =
-        "❌ Network error. Please check your connection.";
-    } finally {
-      translateBtn.disabled = false;
-      translateBtn.textContent = "Translate";
-    }
+
+      translateBtn.disabled = true;
+      translateBtn.textContent = "Translating...";
+      outputText.textContent = "";
+
+      try {
+        const response = await fetch(API_URL, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${apiKey}`,
+          },
+          body: JSON.stringify({
+            text: text,
+            src_lang: srcLang.value,
+            tgt_lang: tgtLang.value,
+          }),
+        });
+
+        const data = await response.json();
+
+        if (data.message_type === "SUCCESS") {
+          outputText.textContent = data.output;
+        } else {
+          outputText.textContent = `❌ ${data.message || "Translation failed."}`;
+        }
+      } catch (err) {
+        console.error("TMT API error:", err);
+        outputText.textContent =
+          "❌ Network error. Please check your connection.";
+      } finally {
+        translateBtn.disabled = false;
+        translateBtn.textContent = "Translate";
+      }
+    });
   });
 
   copyBtn.addEventListener("click", () => {

@@ -1,0 +1,96 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  background: #f8f9fa;
+  color: #202124;
+  display: flex;
+  justify-content: center;
+  padding: 40px 20px;
+}
+
+.container {
+  width: 100%;
+  max-width: 460px;
+}
+
+header {
+  margin-bottom: 24px;
+}
+
+header h1 {
+  font-size: 22px;
+  color: #1a73e8;
+}
+
+.subtitle {
+  font-size: 13px;
+  color: #5f6368;
+  margin-top: 4px;
+}
+
+label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 6px;
+  color: #3c4043;
+}
+
+#apiKeyInput {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #dadce0;
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: monospace;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+#apiKeyInput:focus {
+  border-color: #1a73e8;
+}
+
+.hint {
+  font-size: 11px;
+  color: #9aa0a6;
+  margin-top: 4px;
+  margin-bottom: 16px;
+}
+
+.btn-primary {
+  width: 100%;
+  padding: 10px;
+  background: #1a73e8;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn-primary:hover {
+  background: #1557b0;
+}
+
+.status-msg {
+  text-align: center;
+  margin-top: 12px;
+  font-size: 13px;
+  min-height: 20px;
+}
+
+.status-msg.success {
+  color: #0d652d;
+}
+
+.status-msg.error {
+  color: #d93025;
+}
