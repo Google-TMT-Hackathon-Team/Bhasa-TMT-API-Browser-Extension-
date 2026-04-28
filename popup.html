@@ -13,7 +13,43 @@
         <p class="subtitle">English · Nepali · Tamang</p>
       </header>
       <main>
-        <p class="placeholder">Translation coming soon...</p>
+        <div class="lang-row">
+          <select id="srcLang">
+            <option value="en">English</option>
+            <option value="ne">Nepali</option>
+            <option value="tmg">Tamang</option>
+          </select>
+          <button id="swapBtn" title="Swap languages">⇄</button>
+          <select id="tgtLang">
+            <option value="ne">Nepali</option>
+            <option value="en">English</option>
+            <option value="tmg">Tamang</option>
+          </select>
+        </div>
+
+        <!-- Input -->
+        <div class="input-group">
+          <textarea
+            id="inputText"
+            placeholder="Enter text to translate..."
+            rows="4"
+          ></textarea>
+          <span class="char-count" id="charCount">0 / 500</span>
+        </div>
+
+        <button id="translateBtn" class="btn-primary">Translate</button>
+
+        <!-- Output -->
+        <div class="output-group">
+          <div
+            id="outputText"
+            class="output-text"
+            placeholder="Translation will appear here..."
+          ></div>
+          <button id="copyBtn" class="btn-small" title="Copy translation">
+            Copy
+          </button>
+        </div>
       </main>
     </div>
     <script src="scripts/popup.js"></script>
