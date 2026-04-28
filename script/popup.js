@@ -1,3 +1,8 @@
+import "./secrets.js";
+
+const API_URL = "https://tmt.ilprl.ku.edu.np/lang-translate";
+const API_KEY = typeof TMT_API_KEY !== "undefined" ? TMT_API_KEY : "";
+
 document.addEventListener("DOMContentLoaded", () => {
   const srcLang = document.getElementById("srcLang");
   const tgtLang = document.getElementById("tgtLang");
@@ -24,22 +29,62 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  translateBtn.addEventListener("click", () => {
+  translateBtn.addEventListener("click", async () => {
     const text = inputText.value.trim();
     if (!text) {
       outputText.textContent = "";
       return;
     }
-    outputText.textContent = "Translating...";
+
+    if (srcLang.value === tgtLang.value) {
+      outputText.textContent =
+        "⚠ Source and target languages must be different.";
+      return;
+    }
+
+    translateBtn.disabled = true;
+    translateBtn.textContent = "Translating...";
+    outputText.textContent = "";
+
+    try {
+      const response = await fetch(API_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${API_KEY}`,
+        },
+        body: JSON.stringify({
+          text: text,
+          src_lang: srcLang.value,
+          tgt_lang: tgtLang.value,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.message_type === "SUCCESS") {
+        outputText.textContent = data.output;
+      } else {
+        outputText.textContent = `❌ ${data.message || "Translation failed."}`;
+      }
+    } catch (err) {
+      console.error("TMT API error:", err);
+      outputText.textContent =
+        "❌ Network error. Please check your connection.";
+    } finally {
+      translateBtn.disabled = false;
+      translateBtn.textContent = "Translate";
+    }
   });
 
   copyBtn.addEventListener("click", () => {
     const text = outputText.textContent;
-    if (!text) return;
+    if (!text || text.startsWith("❌") || text.startsWith("⚠")) return;
+
     navigator.clipboard.writeText(text).then(() => {
-      copyBtn.textContent = " Copied!";
+      copyBtn.textContent = "✅ Copied!";
       setTimeout(() => {
-        copyBtn.textContent = " Copy";
+        copyBtn.textContent = "📋 Copy";
       }, 1500);
     });
   });
