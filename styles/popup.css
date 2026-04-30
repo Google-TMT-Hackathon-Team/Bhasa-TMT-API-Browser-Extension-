@@ -1,195 +1,96 @@
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
-
-body {
-  width: 360px;
-  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
-  background: #f8f9fa;
-  color: #202124;
-}
-
-.container {
-  padding: 16px;
-}
-
-header {
-  text-align: center;
-  margin-bottom: 14px;
-}
-
-header h1 {
-  font-size: 18px;
-  color: #1a73e8;
-}
-
-.subtitle {
-  font-size: 12px;
-  color: #5f6368;
-  margin-top: 2px;
-}
-
-.lang-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 12px;
-}
-
-.lang-row select {
-  flex: 1;
-  padding: 8px 10px;
-  border: 1px solid #dadce0;
-  border-radius: 6px;
-  font-size: 13px;
-  background: #fff;
-  color: #202124;
-  cursor: pointer;
-  outline: none;
-  transition: border-color 0.2s;
-}
-
-.lang-row select:focus {
-  border-color: #1a73e8;
-}
-
-#swapBtn {
-  background: none;
-  border: 1px solid #dadce0;
-  border-radius: 50%;
-  width: 32px;
-  height: 32px;
-  font-size: 16px;
-  cursor: pointer;
-  color: #1a73e8;
-  transition: background 0.2s;
-}
-
-#swapBtn:hover {
-  background: #e8f0fe;
-}
-
-.input-group {
-  position: relative;
+.detect-row {
   margin-bottom: 10px;
 }
 
-#inputText {
-  width: 100%;
-  padding: 10px 12px;
-  border: 1px solid #dadce0;
-  border-radius: 8px;
-  font-size: 14px;
-  resize: none;
-  outline: none;
-  font-family: inherit;
-  line-height: 1.5;
-  transition: border-color 0.2s;
+.detect-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #5f6368;
+  cursor: pointer;
 }
 
-#inputText:focus {
-  border-color: #1a73e8;
+.detect-label input[type="checkbox"] {
+  accent-color: #1a73e8;
+  cursor: pointer;
 }
 
-.char-count {
-  position: absolute;
-  bottom: 6px;
-  right: 10px;
-  font-size: 11px;
-  color: #9aa0a6;
+.history-section {
+  margin-top: 12px;
+  border-top: 1px solid #e8eaed;
+  padding-top: 10px;
 }
 
-.btn-primary {
-  width: 100%;
-  padding: 10px;
-  background: #1a73e8;
-  color: #fff;
-  border: none;
-  border-radius: 8px;
-  font-size: 14px;
+.history-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.history-title {
+  font-size: 12px;
   font-weight: 600;
-  cursor: pointer;
-  transition: background 0.2s;
-  margin-bottom: 12px;
+  color: #5f6368;
 }
 
-.btn-primary:hover {
-  background: #1557b0;
-}
-
-.btn-primary:disabled {
-  background: #9aa0a6;
-  cursor: not-allowed;
-}
-
-.output-group {
-  position: relative;
-  background: #fff;
-  border: 1px solid #dadce0;
-  border-radius: 8px;
-  min-height: 80px;
-  padding: 10px 12px;
-}
-
-.output-text {
-  font-size: 14px;
-  line-height: 1.5;
-  color: #202124;
-  white-space: pre-wrap;
-  min-height: 50px;
-}
-
-.output-text:empty::before {
-  content: attr(placeholder);
-  color: #9aa0a6;
-  font-style: italic;
-}
-
-.btn-small {
-  position: absolute;
-  bottom: 6px;
-  right: 8px;
+.btn-small-inline {
   background: none;
-  border: 1px solid #dadce0;
-  border-radius: 4px;
-  padding: 4px 8px;
+  border: none;
   font-size: 11px;
+  color: #9aa0a6;
   cursor: pointer;
+  padding: 2px 4px;
+}
+
+.btn-small-inline:hover {
+  color: #d93025;
+}
+
+.history-list {
+  max-height: 120px;
+  overflow-y: auto;
+}
+
+.history-item {
+  padding: 6px 8px;
+  border-radius: 6px;
+  margin-bottom: 4px;
+  cursor: pointer;
+  transition: background 0.15s;
+  font-size: 12px;
+}
+
+.history-item:hover {
+  background: #e8f0fe;
+}
+
+.history-item .h-input {
+  color: #202124;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.history-item .h-output {
   color: #5f6368;
-  transition: background 0.2s;
-}
-
-.btn-small:hover {
-  background: #f1f3f4;
-}
-
-@keyframes pulse {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.4;
-  }
-}
-
-.output-text.loading {
-  animation: pulse 1.2s ease-in-out infinite;
-  color: #5f6368;
-}
-
-.footer-link {
-  display: block;
-  text-align: center;
-  margin-top: 10px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   font-size: 11px;
+  margin-top: 2px;
+}
+
+.history-item .h-lang {
+  font-size: 10px;
   color: #1a73e8;
-  text-decoration: none;
-  cursor: pointer;
+  margin-top: 2px;
 }
 
-.footer-link:hover {
-  text-decoration: underline;
+.history-empty {
+  font-size: 11px;
+  color: #9aa0a6;
+  text-align: center;
+  padding: 8px 0;
 }

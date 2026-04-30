@@ -27,7 +27,13 @@
           </select>
         </div>
 
-        <!-- Input -->
+        <div class="detect-row">
+          <label class="detect-label">
+            <input type="checkbox" id="autoDetect" />
+            <span>Auto-detect source language</span>
+          </label>
+        </div>
+
         <div class="input-group">
           <textarea
             id="inputText"
@@ -39,7 +45,6 @@
 
         <button id="translateBtn" class="btn-primary">Translate</button>
 
-        <!-- Output -->
         <div class="output-group">
           <div
             id="outputText"
@@ -47,12 +52,23 @@
             placeholder="Translation will appear here..."
           ></div>
           <button id="copyBtn" class="btn-small" title="Copy translation">
-            Copy
+            📋 Copy
           </button>
         </div>
+
+        <div class="history-section">
+          <div class="history-header">
+            <span class="history-title">🕐 Recent</span>
+            <button id="clearHistoryBtn" class="btn-small-inline">Clear</button>
+          </div>
+          <div id="historyList" class="history-list"></div>
+        </div>
+
         <a href="#" id="openSettings" class="footer-link">⚙ Settings</a>
       </main>
     </div>
+    <script src="scripts/detector.js"></script>
+    <script src="scripts/history.js"></script>
     <script src="scripts/secrets.js"></script>
     <script src="scripts/popup.js"></script>
   </body>
