@@ -95,6 +95,24 @@ document.addEventListener("DOMContentLoaded", () => {
       }, 1500);
     });
   });
+  document.getElementById("openSettings").addEventListener("click", (e) => {
+    e.preventDefault();
+    chrome.runtime.openOptionsPage();
+  });
+
+  // --- Loading state on output ---
+  const observer = new MutationObserver(() => {
+    if (outputText.textContent === "Translating...") {
+      outputText.classList.add("loading");
+    } else {
+      outputText.classList.remove("loading");
+    }
+  });
+  observer.observe(outputText, {
+    childList: true,
+    characterData: true,
+    subtree: true,
+  });
 });
 
 srcLang.addEventListener("change", () => {

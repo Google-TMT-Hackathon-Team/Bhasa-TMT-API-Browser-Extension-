@@ -1,12 +1,9 @@
-// TMT Translator — content script
-// Injects a floating translate button on text selection
-
 const API_URL = "https://tmt.ilprl.ku.edu.np/lang-translate";
 
 let floatingBtn = null;
 let resultPopup = null;
+let debounceTimer = null;
 
-// --- Create floating translate button ---
 function createFloatingBtn() {
   if (floatingBtn) return floatingBtn;
 
@@ -28,7 +25,7 @@ function createFloatingBtn() {
     cursor: pointer;
     box-shadow: 0 2px 8px rgba(0,0,0,0.2);
     user-select: none;
-    transition: background 0.2s;
+    transition: background 0.2s, opacity 0.2s;
   `;
   btn.addEventListener("mouseenter", () => {
     btn.style.background = "#1557b0";
@@ -41,7 +38,6 @@ function createFloatingBtn() {
   return btn;
 }
 
-// --- Create result popup ---
 function createResultPopup() {
   if (resultPopup) return resultPopup;
 
@@ -68,7 +64,6 @@ function createResultPopup() {
   return popup;
 }
 
-// --- Position the floating button near selection ---
 function showFloatingBtn(x, y) {
   const btn = createFloatingBtn();
   btn.style.left = `${x + 10}px`;
@@ -80,7 +75,6 @@ function hideFloatingBtn() {
   if (floatingBtn) floatingBtn.style.display = "none";
 }
 
-// --- Show translation result ---
 function showResult(text, x, y) {
   const popup = createResultPopup();
   popup.textContent = text;
@@ -93,22 +87,76 @@ function hideResult() {
   if (resultPopup) resultPopup.style.display = "none";
 }
 
-// --- Detect text selection ---
-document.addEventListener("mouseup", (e) => {
+function getSelectionCoords() {
+  const sel = window.getSelection();
+  if (!sel.rangeCount) return null;
+  const rect = sel.getRangeAt(0).getBoundingClientRect();
+  return {
+    x: rect.left + window.scrollX,
+    topY: rect.top + window.scrollY,
+    bottomY: rect.bottom + window.scrollY,
+  };
+}
+
+async function translateSelection() {
   const selected = window.getSelection().toString().trim();
+  if (!selected || selected.length > 500) return;
+
+  const coords = getSelectionCoords();
+  if (!coords) return;
+
+  hideFloatingBtn();
+  showResult("🔄 Translating...", coords.x, coords.bottomY);
+
+  chrome.storage.local.get(["tmt_src_lang", "tmt_tgt_lang"], (result) => {
+    const srcLang = result.tmt_src_lang || "en";
+    const tgtLang = result.tmt_tgt_lang || "ne";
+
+    chrome.runtime.sendMessage(
+      {
+        action: "api_translate",
+        text: selected,
+        src_lang: srcLang,
+        tgt_lang: tgtLang,
+      },
+      (response) => {
+        if (chrome.runtime.lastError) {
+          showResult(
+            "❌ Extension error. Try reloading the page.",
+            coords.x,
+            coords.bottomY,
+          );
+          return;
+        }
+        if (response && response.success) {
+          showResult(response.output, coords.x, coords.bottomY);
+        } else {
+          showResult(
+            `❌ ${response?.error || "Translation failed."}`,
+            coords.x,
+            coords.bottomY,
+          );
+        }
+      },
+    );
+  });
+}
+
+document.addEventListener("mouseup", (e) => {
+  clearTimeout(debounceTimer);
   hideResult();
 
-  if (selected.length > 0 && selected.length <= 500) {
-    const rect = window.getSelection().getRangeAt(0).getBoundingClientRect();
-    const x = rect.left + window.scrollX;
-    const y = rect.top + window.scrollY;
-    showFloatingBtn(x, y);
-  } else {
-    hideFloatingBtn();
-  }
+  debounceTimer = setTimeout(() => {
+    const selected = window.getSelection().toString().trim();
+    if (selected.length > 0 && selected.length <= 500) {
+      const coords = getSelectionCoords();
+      if (coords) showFloatingBtn(coords.x, coords.topY);
+    } else {
+      hideFloatingBtn();
+    }
+  }, 150);
 });
 
-// --- Close popups on click outside ---
 document.addEventListener("mousedown", (e) => {
   if (
     floatingBtn &&
@@ -121,58 +169,14 @@ document.addEventListener("mousedown", (e) => {
   }
 });
 
-// --- Translate on click ---
 createFloatingBtn();
 floatingBtn.addEventListener("click", async (e) => {
   e.stopPropagation();
-  const selected = window.getSelection().toString().trim();
-  if (!selected) return;
+  translateSelection();
+});
 
-  const rect = window.getSelection().getRangeAt(0).getBoundingClientRect();
-  const x = rect.left + window.scrollX;
-  const y = rect.bottom + window.scrollY;
-
-  hideFloatingBtn();
-  showResult("🔄 Translating...", x, y);
-
-  // Get API key + default language pair
-  chrome.storage.local.get(
-    ["tmt_api_key", "tmt_src_lang", "tmt_tgt_lang"],
-    async (result) => {
-      const apiKey = result.tmt_api_key;
-      if (!apiKey) {
-        showResult("⚠ No API key set. Open extension Settings.", x, y);
-        return;
-      }
-
-      const srcLang = result.tmt_src_lang || "en";
-      const tgtLang = result.tmt_tgt_lang || "ne";
-
-      try {
-        const response = await fetch(API_URL, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${apiKey}`,
-          },
-          body: JSON.stringify({
-            text: selected,
-            src_lang: srcLang,
-            tgt_lang: tgtLang,
-          }),
-        });
-
-        const data = await response.json();
-
-        if (data.message_type === "SUCCESS") {
-          showResult(data.output, x, y);
-        } else {
-          showResult(`❌ ${data.message || "Translation failed."}`, x, y);
-        }
-      } catch (err) {
-        console.error("TMT content script error:", err);
-        showResult("❌ Network error.", x, y);
-      }
-    },
-  );
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.action === "translate_selection") {
+    translateSelection();
+  }
 });

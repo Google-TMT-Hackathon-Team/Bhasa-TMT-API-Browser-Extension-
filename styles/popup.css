@@ -164,3 +164,32 @@ header h1 {
 .btn-small:hover {
   background: #f1f3f4;
 }
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+
+.output-text.loading {
+  animation: pulse 1.2s ease-in-out infinite;
+  color: #5f6368;
+}
+
+.footer-link {
+  display: block;
+  text-align: center;
+  margin-top: 10px;
+  font-size: 11px;
+  color: #1a73e8;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.footer-link:hover {
+  text-decoration: underline;
+}
