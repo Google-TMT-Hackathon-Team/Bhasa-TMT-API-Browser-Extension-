@@ -1,6 +1,5 @@
 // test-api.js
 const API_URL = "https://tmt.ilprl.ku.edu.np/lang-translate";
-const API_KEY = "team_8f1b8f7627248e7b";
 
 async function testTranslation() {
   console.log("Sending request to TMT API...");

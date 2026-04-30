@@ -96,3 +96,15 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 });
+
+srcLang.addEventListener("change", () => {
+  chrome.storage.local.set({ tmt_src_lang: srcLang.value });
+});
+tgtLang.addEventListener("change", () => {
+  chrome.storage.local.set({ tmt_tgt_lang: tgtLang.value });
+});
+
+chrome.storage.local.get(["tmt_src_lang", "tmt_tgt_lang"], (result) => {
+  if (result.tmt_src_lang) srcLang.value = result.tmt_src_lang;
+  if (result.tmt_tgt_lang) tgtLang.value = result.tmt_tgt_lang;
+});
