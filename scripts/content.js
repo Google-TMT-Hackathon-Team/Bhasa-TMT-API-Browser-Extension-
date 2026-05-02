@@ -2,11 +2,12 @@ const API_URL = "https://tmt.ilprl.ku.edu.np/lang-translate";
 
 let floatingBtn = null;
 let resultPopup = null;
+let toastEl = null;
 let debounceTimer = null;
+let toastTimeout = null;
 
 function createFloatingBtn() {
   if (floatingBtn) return floatingBtn;
-
   const btn = document.createElement("div");
   btn.id = "tmt-float-btn";
   btn.textContent = "🌐 TMT";
@@ -40,7 +41,6 @@ function createFloatingBtn() {
 
 function createResultPopup() {
   if (resultPopup) return resultPopup;
-
   const popup = document.createElement("div");
   popup.id = "tmt-result-popup";
   popup.style.cssText = `
@@ -108,26 +108,55 @@ async function translateSelection() {
   hideFloatingBtn();
   showResult("🔄 Translating...", coords.x, coords.bottomY);
 
-  chrome.storage.local.get(["tmt_src_lang", "tmt_tgt_lang"], (result) => {
-    const srcLang = result.tmt_src_lang || "en";
-    const tgtLang = result.tmt_tgt_lang || "ne";
+  chrome.storage.local.get(
+    ["tmt_api_key", "tmt_src_lang", "tmt_tgt_lang"],
+    async (result) => {
+      const apiKey = result.tmt_api_key;
+      if (!apiKey) {
+        showResult(
+          "⚠ No API key. Open extension → Settings.",
+          coords.x,
+          coords.bottomY,
+        );
+        return;
+      }
 
-    chrome.runtime.sendMessage(
-      {
-        action: "api_translate",
-        text: selected,
-        src_lang: srcLang,
-        tgt_lang: tgtLang,
-      },
-      (response) => {
-        if (chrome.runtime.lastError) {
-          showResult(
-            "❌ Extension error. Try reloading the page.",
-            coords.x,
-            coords.bottomY,
-          );
-          return;
-        }
+      const srcLang = result.tmt_src_lang || "en";
+      const tgtLang = result.tmt_tgt_lang || "ne";
+
+      console.log("[TMT] Translating:", selected, srcLang, "→", tgtLang);
+
+      try {
+        const response = await new Promise((resolve, reject) => {
+          const timeout = setTimeout(() => {
+            reject(new Error("Background timeout"));
+          }, 5000);
+
+          try {
+            chrome.runtime.sendMessage(
+              {
+                action: "api_translate",
+                text: selected,
+                src_lang: srcLang,
+                tgt_lang: tgtLang,
+              },
+              (res) => {
+                clearTimeout(timeout);
+                if (chrome.runtime.lastError) {
+                  reject(new Error(chrome.runtime.lastError.message));
+                  return;
+                }
+                resolve(res);
+              },
+            );
+          } catch (e) {
+            clearTimeout(timeout);
+            reject(e);
+          }
+        });
+
+        console.log("[TMT] Background response:", response);
+
         if (response && response.success) {
           showResult(response.output, coords.x, coords.bottomY);
         } else {
@@ -137,9 +166,71 @@ async function translateSelection() {
             coords.bottomY,
           );
         }
-      },
-    );
-  });
+      } catch (err) {
+        console.log(
+          "[TMT] Background failed:",
+          err.message,
+          "— trying direct fetch...",
+        );
+
+        try {
+          const fetchRes = await fetch(API_URL, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${apiKey}`,
+            },
+            body: JSON.stringify({
+              text: selected,
+              src_lang: srcLang,
+              tgt_lang: tgtLang,
+            }),
+          });
+
+          // CHECK FOR HTML RESPONSE
+          const contentType = fetchRes.headers.get("content-type") || "";
+          const rawText = await fetchRes.text();
+
+          if (!contentType.includes("application/json")) {
+            console.error("[TMT] Got HTML:", rawText.substring(0, 200));
+            showResult(
+              "❌ API returned HTML. Server might be down.",
+              coords.x,
+              coords.bottomY,
+            );
+            return;
+          }
+
+          let data;
+          try {
+            data = JSON.parse(rawText);
+          } catch (e) {
+            showResult("❌ Invalid API response.", coords.x, coords.bottomY);
+            return;
+          }
+
+          console.log("[TMT] Direct fetch response:", data);
+
+          if (data.message_type === "SUCCESS") {
+            showResult(data.output, coords.x, coords.bottomY);
+          } else {
+            showResult(
+              `❌ ${data.message || "Translation failed."}`,
+              coords.x,
+              coords.bottomY,
+            );
+          }
+        } catch (fetchErr) {
+          console.error("[TMT] Direct fetch also failed:", fetchErr);
+          showResult(
+            "❌ Network error. Check connection.",
+            coords.x,
+            coords.bottomY,
+          );
+        }
+      }
+    },
+  );
 }
 
 document.addEventListener("mouseup", (e) => {
@@ -175,18 +266,8 @@ floatingBtn.addEventListener("click", async (e) => {
   translateSelection();
 });
 
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  if (message.action === "translate_selection") {
-    translateSelection();
-  }
-});
-
-let toastEl = null;
-let toastTimeout = null;
-
 function createToast() {
   if (toastEl) return toastEl;
-
   const toast = document.createElement("div");
   toast.id = "tmt-toast";
   toast.style.cssText = `
@@ -260,7 +341,153 @@ function hideToast() {
     if (toastEl) toastEl.style.display = "none";
   }, 300);
 }
+
+let isPageTranslated = false;
+let originalTexts = new Map();
+
+function getTranslatableElements() {
+  const walker = document.createTreeWalker(
+    document.body,
+    NodeFilter.SHOW_TEXT,
+    {
+      acceptNode: function (node) {
+        if (!node.textContent.trim()) return NodeFilter.FILTER_REJECT;
+
+        const parent = node.parentElement;
+        if (!parent) return NodeFilter.FILTER_REJECT;
+        const tag = parent.tagName.toLowerCase();
+        if (
+          [
+            "script",
+            "style",
+            "noscript",
+            "textarea",
+            "input",
+            "select",
+          ].includes(tag)
+        ) {
+          return NodeFilter.FILTER_REJECT;
+        }
+
+        if (parent.id && parent.id.startsWith("tmt-"))
+          return NodeFilter.FILTER_REJECT;
+
+        const style = window.getComputedStyle(parent);
+        if (
+          style.display === "none" ||
+          style.visibility === "hidden" ||
+          style.opacity === "0"
+        ) {
+          return NodeFilter.FILTER_REJECT;
+        }
+
+        if (node.textContent.trim().length < 2) return NodeFilter.FILTER_REJECT;
+
+        return NodeFilter.FILTER_ACCEPT;
+      },
+    },
+  );
+
+  const elements = [];
+  let node;
+  while ((node = walker.nextNode())) {
+    const text = node.textContent.trim();
+    if (text.length >= 2 && text.length <= 500) {
+      const parent = node.parentElement;
+      if (parent && !elements.some((e) => e.element === parent)) {
+        elements.push({
+          element: parent,
+          text: text,
+        });
+      }
+    }
+  }
+
+  return elements;
+}
+
+function translatePage() {
+  if (isPageTranslated) {
+    restorePage();
+    return;
+  }
+
+  const items = getTranslatableElements();
+  console.log("[TMT Live] Found", items.length, "translatable elements");
+
+  if (items.length === 0) {
+    alert("No translatable text found on this page.");
+    return;
+  }
+
+  if (items.length > 50) {
+    items.length = 50;
+    console.log("[TMT Live] Capped at 50 elements");
+  }
+
+  items.forEach((item) => {
+    originalTexts.set(item.element, item.element.textContent);
+  });
+
+  chrome.runtime.sendMessage(
+    {
+      action: "translate_page",
+      texts: items.map((i) => i.text),
+    },
+    (response) => {
+      if (chrome.runtime.lastError) {
+        console.error("[TMT Live] Error:", chrome.runtime.lastError);
+        alert("Translation failed: " + chrome.runtime.lastError.message);
+        return;
+      }
+
+      if (response && response.success) {
+        items.forEach((item, index) => {
+          if (response.translations[index]) {
+            const original = item.element.textContent;
+            const translated = response.translations[index];
+
+            item.element.innerHTML = `
+              <span style="opacity:0.5;text-decoration:line-through;">${escapeHTML(original)}</span>
+              <br/>
+              <span style="color:#1a73e8;font-weight:600;">${escapeHTML(translated)}</span>
+            `;
+            item.element.setAttribute("data-tmt-translated", "true");
+          }
+        });
+
+        isPageTranslated = true;
+        console.log("[TMT Live] Page translated successfully");
+      } else {
+        alert("Translation failed: " + (response?.error || "Unknown error"));
+      }
+    },
+  );
+}
+
+function restorePage() {
+  originalTexts.forEach((original, element) => {
+    if (element && element.getAttribute("data-tmt-translated")) {
+      element.textContent = original;
+      element.removeAttribute("data-tmt-translated");
+    }
+  });
+  originalTexts.clear();
+  isPageTranslated = false;
+  console.log("[TMT Live] Restored original texts");
+}
+
+function escapeHTML(str) {
+  const div = document.createElement("div");
+  div.textContent = str;
+  return div.innerHTML;
+}
+
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.action === "translate_selection") {
+    translateSelection();
+  }
+
   if (message.action === "show_toast") {
     if (message.text.startsWith("🔄")) {
       showToast(message.text, 0);
@@ -271,7 +498,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
   }
 
-  if (message.action === "translate_selection") {
-    translateSelection();
+  if (message.action === "translate_page_request") {
+    translatePage();
+    sendResponse({ translated: isPageTranslated });
+  }
+
+  if (message.action === "restore_page") {
+    restorePage();
+    sendResponse({ translated: false });
   }
 });

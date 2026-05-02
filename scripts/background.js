@@ -6,6 +6,7 @@ chrome.runtime.onInstalled.addListener(() => {
     title: "Translate with TMT",
     contexts: ["selection"],
   });
+  console.log("[TMT BG] Context menu created");
 });
 
 chrome.contextMenus.onClicked.addListener((info, tab) => {
@@ -67,7 +68,6 @@ function translateAndSendToTab(text, tabId) {
           tgtLang,
           apiKey,
         );
-
         chrome.tabs.sendMessage(tabId, {
           action: "show_toast",
           text: `✅ ${output}`,
@@ -87,10 +87,10 @@ function translateAndSendToTab(text, tabId) {
           chrome.storage.local.set({ tmt_history: history });
         });
       } catch (err) {
-        console.error("TMT API error:", err);
+        console.error("[TMT BG] Error:", err);
         chrome.tabs.sendMessage(tabId, {
           action: "show_toast",
-          text: "❌ Network error.",
+          text: "❌ " + err.message,
           isFinal: true,
         });
       }
@@ -98,35 +98,9 @@ function translateAndSendToTab(text, tabId) {
   );
 }
 
-async function translateMultiSentence(text, srcLang, tgtLang, apiKey) {
-  const sentences = text.match(/[^.!?।]+[.!?।]?\s*/g) || [text];
-  const cleaned = sentences.map((s) => s.trim()).filter((s) => s.length > 0);
+async function safeTranslate(text, srcLang, tgtLang, apiKey) {
+  console.log("[TMT BG] Fetching:", text, srcLang, "→", tgtLang);
 
-  if (cleaned.length === 0) return "";
-
-  if (cleaned.length === 1) {
-    return await translateSingle(cleaned[0], srcLang, tgtLang, apiKey);
-  }
-
-  const results = [];
-  for (let i = 0; i < cleaned.length; i++) {
-    const translated = await translateSingle(
-      cleaned[i],
-      srcLang,
-      tgtLang,
-      apiKey,
-    );
-    results.push(translated);
-
-    if (i < cleaned.length - 1) {
-      await delay(300);
-    }
-  }
-
-  return results.join(" ").replace(/\s+/g, " ").trim();
-}
-
-async function translateSingle(text, srcLang, tgtLang, apiKey) {
   const response = await fetch(API_URL, {
     method: "POST",
     headers: {
@@ -140,7 +114,28 @@ async function translateSingle(text, srcLang, tgtLang, apiKey) {
     }),
   });
 
-  const data = await response.json();
+  const contentType = response.headers.get("content-type") || "";
+  const rawText = await response.text();
+
+  if (!contentType.includes("application/json")) {
+    console.error(
+      "[TMT BG] Got HTML instead of JSON:",
+      rawText.substring(0, 200),
+    );
+    throw new Error(
+      "API returned HTML. Server might be down — report in WhatsApp group.",
+    );
+  }
+
+  let data;
+  try {
+    data = JSON.parse(rawText);
+  } catch (e) {
+    console.error("[TMT BG] JSON parse failed:", rawText.substring(0, 200));
+    throw new Error("API returned invalid response. Try again later.");
+  }
+
+  console.log("[TMT BG] Response:", data);
 
   if (data.message_type === "SUCCESS") {
     return data.output;
@@ -149,12 +144,41 @@ async function translateSingle(text, srcLang, tgtLang, apiKey) {
   }
 }
 
+async function translateMultiSentence(text, srcLang, tgtLang, apiKey) {
+  const sentences = text.match(/[^.!?।]+[.!?।]?\s*/g) || [text];
+  const cleaned = sentences.map((s) => s.trim()).filter((s) => s.length > 0);
+
+  if (cleaned.length === 0) return "";
+
+  if (cleaned.length === 1) {
+    return await safeTranslate(cleaned[0], srcLang, tgtLang, apiKey);
+  }
+
+  const results = [];
+  for (let i = 0; i < cleaned.length; i++) {
+    const translated = await safeTranslate(
+      cleaned[i],
+      srcLang,
+      tgtLang,
+      apiKey,
+    );
+    results.push(translated);
+    if (i < cleaned.length - 1) {
+      await delay(300);
+    }
+  }
+
+  return results.join(" ").replace(/\s+/g, " ").trim();
+}
+
 function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === "api_translate") {
+    console.log("[TMT BG] Received api_translate:", message.text);
+
     chrome.storage.local.get(["tmt_api_key"], async (result) => {
       const apiKey = result.tmt_api_key;
       if (!apiKey) {
@@ -174,6 +198,50 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         sendResponse({ success: false, error: err.message });
       }
     });
+
+    return true;
+  }
+
+  if (message.action === "translate_page") {
+    console.log(
+      "[TMT BG] Translate page request:",
+      message.texts?.length,
+      "items",
+    );
+
+    chrome.storage.local.get(
+      ["tmt_api_key", "tmt_src_lang", "tmt_tgt_lang"],
+      async (result) => {
+        const apiKey = result.tmt_api_key;
+        if (!apiKey) {
+          sendResponse({ success: false, error: "No API key set" });
+          return;
+        }
+
+        const srcLang = result.tmt_src_lang || "en";
+        const tgtLang = result.tmt_tgt_lang || "ne";
+
+        try {
+          const translations = [];
+          for (let i = 0; i < message.texts.length; i++) {
+            const t = await safeTranslate(
+              message.texts[i],
+              srcLang,
+              tgtLang,
+              apiKey,
+            );
+            translations.push(t);
+            if (i < message.texts.length - 1) {
+              await delay(250);
+            }
+          }
+          sendResponse({ success: true, translations: translations });
+        } catch (err) {
+          sendResponse({ success: false, error: err.message });
+        }
+      },
+    );
+
     return true;
   }
 });

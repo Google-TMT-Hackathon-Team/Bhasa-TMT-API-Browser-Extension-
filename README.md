@@ -34,3 +34,5 @@ Built for the **Google TMT Hackathon 2026** by **Team Logic Lions**.
 ## Team
 
 **Logic Lions** — Google TMT Hackathon 2026
+
+![alt text](image-1.png)
