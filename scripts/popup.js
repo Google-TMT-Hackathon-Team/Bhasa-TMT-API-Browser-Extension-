@@ -86,45 +86,62 @@ document.addEventListener("DOMContentLoaded", () => {
       outputText.textContent = "";
 
       try {
-        const response = await fetch(API_URL, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${apiKey}`,
-          },
-          body: JSON.stringify({
-            text: text,
-            src_lang: effectiveSrcLang,
-            tgt_lang: tgtLang.value,
-          }),
-        });
+        let sentences = [text];
+        if (window.TMTSplitter) {
+          sentences = window.TMTSplitter.splitSentences(text);
+        }
 
-        const data = await response.json();
+        let translatedParts = [];
 
-        if (data.message_type === "SUCCESS") {
-          outputText.textContent = data.output;
-          // Save to history
-          if (window.TMTHistory) {
-            window.TMTHistory.addToHistory(
-              {
-                input: text,
-                output: data.output,
-                src_lang: effectiveSrcLang,
-                tgt_lang: tgtLang.value,
-              },
-              () => loadHistory(),
-            );
+        for (let i = 0; i < sentences.length; i++) {
+          const response = await fetch(API_URL, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${apiKey}`,
+            },
+            body: JSON.stringify({
+              text: sentences[i],
+              src_lang: effectiveSrcLang,
+              tgt_lang: tgtLang.value,
+            }),
+          });
+
+          const data = await response.json();
+
+          if (data.message_type === "SUCCESS") {
+            translatedParts.push(data.output);
+          } else {
+            outputText.textContent = `❌ ${data.message || "Translation failed."}`;
+            return;
           }
-        } else {
-          outputText.textContent = `❌ ${data.message || "Translation failed."}`;
+
+          if (i < sentences.length - 1) {
+            await new Promise((r) => setTimeout(r, 300));
+          }
+        }
+
+        const finalOutput = translatedParts
+          .join(" ")
+          .replace(/\s+/g, " ")
+          .trim();
+        outputText.textContent = finalOutput;
+
+        if (window.TMTHistory) {
+          window.TMTHistory.addToHistory(
+            {
+              input: text,
+              output: finalOutput,
+              src_lang: effectiveSrcLang,
+              tgt_lang: tgtLang.value,
+            },
+            () => loadHistory(),
+          );
         }
       } catch (err) {
         console.error("TMT API error:", err);
         outputText.textContent =
           "❌ Network error. Please check your connection.";
-      } finally {
-        translateBtn.disabled = false;
-        translateBtn.textContent = "Translate";
       }
     });
   });
