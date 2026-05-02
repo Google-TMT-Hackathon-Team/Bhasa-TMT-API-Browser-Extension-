@@ -26,4 +26,19 @@ document.addEventListener("DOMContentLoaded", () => {
       }, 2500);
     });
   });
+  const darkToggle = document.getElementById("darkToggle");
+
+  chrome.storage.local.get(["tmt_dark_mode"], (result) => {
+    if (result.tmt_dark_mode) {
+      document.body.classList.add("dark-mode");
+      darkToggle.textContent = "☀️";
+    }
+  });
+
+  darkToggle.addEventListener("click", () => {
+    document.body.classList.toggle("dark-mode");
+    const isDark = document.body.classList.contains("dark-mode");
+    darkToggle.textContent = isDark ? "☀️" : "🌙";
+    chrome.storage.local.set({ tmt_dark_mode: isDark });
+  });
 });

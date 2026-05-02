@@ -94,3 +94,52 @@ label {
 .status-msg.error {
   color: #d93025;
 }
+
+/* Dark mode for options */
+body.dark-mode {
+  background: #1e1e1e;
+  color: #e4e4e4;
+}
+
+body.dark-mode header h1 {
+  color: #8ab4f8;
+}
+
+body.dark-mode .subtitle {
+  color: #9aa0a6;
+}
+
+body.dark-mode label {
+  color: #e4e4e4;
+}
+
+body.dark-mode #apiKeyInput {
+  background: #2d2d2d;
+  color: #e4e4e4;
+  border-color: #5f6368;
+}
+
+body.dark-mode #apiKeyInput:focus {
+  border-color: #8ab4f8;
+}
+
+body.dark-mode .hint {
+  color: #5f6368;
+}
+
+body.dark-mode .btn-primary {
+  background: #8ab4f8;
+  color: #1e1e1e;
+}
+
+body.dark-mode .btn-primary:hover {
+  background: #aecbfa;
+}
+
+body.dark-mode .status-msg.success {
+  color: #81c995;
+}
+
+body.dark-mode .status-msg.error {
+  color: #f28b82;
+}
