@@ -102,5 +102,6 @@ Built for the **Google TMT Hackathon 2026** by **Team Logic Lions**.
 
 **Logic Lions** — Google TMT Hackathon 2026
 
-Information and Language Processing Research Lab
 Kathmandu University
+
+Demo link: https://drive.google.com/drive/folders/1DTC3bbsohWO9SXf2Jin7smDWFe4NJgmx?usp=sharing
