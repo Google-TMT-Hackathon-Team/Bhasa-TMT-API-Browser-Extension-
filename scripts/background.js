@@ -1,5 +1,27 @@
 const API_URL = "https://tmt.ilprl.ku.edu.np/lang-translate";
 
+chrome.runtime.onInstalled.addListener(() => {
+  chrome.contextMenus.create({
+    id: "tmt-translate-selection",
+    title: "Translate with TMT",
+    contexts: ["selection"],
+  });
+});
+
+chrome.contextMenus.onClicked.addListener((info, tab) => {
+  if (info.menuItemId === "tmt-translate-selection" && info.selectionText) {
+    const selectedText = info.selectionText.trim();
+    if (selectedText.length > 500) {
+      chrome.tabs.sendMessage(tab.id, {
+        action: "show_toast",
+        text: "⚠ Text too long (max 500 characters)",
+      });
+      return;
+    }
+    translateAndSendToTab(selectedText, tab.id);
+  }
+});
+
 chrome.commands.onCommand.addListener(async (command) => {
   if (command !== "translate-selection") return;
 
@@ -8,6 +30,91 @@ chrome.commands.onCommand.addListener(async (command) => {
 
   chrome.tabs.sendMessage(tab.id, { action: "translate_selection" });
 });
+
+function translateAndSendToTab(text, tabId) {
+  chrome.storage.local.get(
+    ["tmt_api_key", "tmt_src_lang", "tmt_tgt_lang"],
+    async (result) => {
+      const apiKey = result.tmt_api_key;
+      if (!apiKey) {
+        chrome.tabs.sendMessage(tabId, {
+          action: "show_toast",
+          text: "⚠ No API key set. Open extension Settings.",
+        });
+        return;
+      }
+
+      let srcLang = result.tmt_src_lang || "en";
+      const tgtLang = result.tmt_tgt_lang || "ne";
+
+      if (/[\u0900-\u097F]/.test(text)) {
+        srcLang = "ne";
+      } else {
+        srcLang = "en";
+      }
+
+      if (srcLang === tgtLang) {
+        srcLang = tgtLang === "ne" ? "en" : "ne";
+      }
+
+      chrome.tabs.sendMessage(tabId, {
+        action: "show_toast",
+        text: "🔄 Translating...",
+      });
+
+      try {
+        const response = await fetch(API_URL, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${apiKey}`,
+          },
+          body: JSON.stringify({
+            text: text,
+            src_lang: srcLang,
+            tgt_lang: tgtLang,
+          }),
+        });
+
+        const data = await response.json();
+
+        if (data.message_type === "SUCCESS") {
+          chrome.tabs.sendMessage(tabId, {
+            action: "show_toast",
+            text: `✅ ${data.output}`,
+            isFinal: true,
+          });
+
+          chrome.storage.local.get(["tmt_history"], (res) => {
+            const history = res.tmt_history || [];
+            history.unshift({
+              input: text,
+              output: data.output,
+              src_lang: srcLang,
+              tgt_lang: tgtLang,
+              timestamp: new Date().toISOString(),
+            });
+            if (history.length > 15) history.length = 15;
+            chrome.storage.local.set({ tmt_history: history });
+          });
+        } else {
+          chrome.tabs.sendMessage(tabId, {
+            action: "show_toast",
+            text: `❌ ${data.message || "Translation failed."}`,
+            isFinal: true,
+          });
+        }
+      } catch (err) {
+        console.error("TMT API error:", err);
+        chrome.tabs.sendMessage(tabId, {
+          action: "show_toast",
+          text: "❌ Network error.",
+          isFinal: true,
+        });
+      }
+    },
+  );
+}
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === "api_translate") {

@@ -180,3 +180,98 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     translateSelection();
   }
 });
+
+let toastEl = null;
+let toastTimeout = null;
+
+function createToast() {
+  if (toastEl) return toastEl;
+
+  const toast = document.createElement("div");
+  toast.id = "tmt-toast";
+  toast.style.cssText = `
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    z-index: 2147483647;
+    max-width: 360px;
+    min-width: 200px;
+    padding: 14px 18px;
+    background: #202124;
+    color: #fff;
+    border-radius: 10px;
+    font-family: 'Segoe UI', Tahoma, sans-serif;
+    font-size: 13px;
+    line-height: 1.5;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    display: none;
+    opacity: 0;
+    transform: translateY(10px);
+    transition: opacity 0.3s ease, transform 0.3s ease;
+    word-wrap: break-word;
+  `;
+
+  const closeBtn = document.createElement("span");
+  closeBtn.textContent = "✕";
+  closeBtn.style.cssText = `
+    position: absolute;
+    top: 6px;
+    right: 10px;
+    cursor: pointer;
+    font-size: 14px;
+    color: #9aa0a6;
+    font-weight: bold;
+  `;
+  closeBtn.addEventListener("click", () => hideToast());
+  toast.appendChild(closeBtn);
+
+  const textEl = document.createElement("div");
+  textEl.id = "tmt-toast-text";
+  textEl.style.paddingRight = "16px";
+  toast.appendChild(textEl);
+
+  document.body.appendChild(toast);
+  toastEl = toast;
+  return toast;
+}
+
+function showToast(text, duration) {
+  const toast = createToast();
+  const textEl = toast.querySelector("#tmt-toast-text");
+  textEl.textContent = text;
+
+  clearTimeout(toastTimeout);
+
+  toast.style.display = "block";
+  toast.offsetHeight;
+  toast.style.opacity = "1";
+  toast.style.transform = "translateY(0)";
+
+  if (duration) {
+    toastTimeout = setTimeout(() => hideToast(), duration);
+  }
+}
+
+function hideToast() {
+  if (!toastEl) return;
+  toastEl.style.opacity = "0";
+  toastEl.style.transform = "translateY(10px)";
+  setTimeout(() => {
+    if (toastEl) toastEl.style.display = "none";
+  }, 300);
+}
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.action === "show_toast") {
+    if (message.text.startsWith("🔄")) {
+      showToast(message.text, 0);
+    } else if (message.isFinal) {
+      showToast(message.text, 6000);
+    } else {
+      showToast(message.text, 4000);
+    }
+  }
+
+  if (message.action === "translate_selection") {
+    translateSelection();
+  }
+});
